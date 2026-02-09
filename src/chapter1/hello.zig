@@ -2,75 +2,85 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const Node = struct {
-    left: ?*Node,
-    right: ?*Node,
-    candy: i32
+    left: ?*Node = null,
+    right: ?*Node = null,
+    candy: i32 = 0,
 };
 
-fn read_tree_helper(l: []const u8,  pos: *u32, allocator: Allocator) ?*Node 
-{
-    const alloc_node = allocator.create(Node) catch null;
-    var node = alloc_node.?;
+const Parser = struct {
+    input: []const u8,
+    pos: usize = 0,
+    allocator: Allocator,
 
-    if (l[pos.*] == '(') {
-        pos.* += 1;
-        node.left = read_tree_helper(l, pos, allocator);
+    pub fn init(input: []const u8, allocator: Allocator) Parser {
+        return .{
+            .input = input,
+            .allocator = allocator,
+        };
+    }
 
-        pos.* += 1;
-        node.right = read_tree_helper(l, pos, allocator);
+    pub fn parse(self: *Parser) !*Node {
+        const node = try self.allocator.create(Node);
+        node.* = .{}; // Initialize with defaults
 
-        pos.* += 1;
+        if (self.pos >= self.input.len) return error.UnexpectedEndOfInput;
+
+        if (self.input[self.pos] == '(') {
+            self.pos += 1; // skip '('
+
+            node.left = try self.parse();
+
+            // Skip delimiter (space)
+            if (self.pos < self.input.len and self.input[self.pos] == ' ') {
+                self.pos += 1;
+            }
+
+            node.right = try self.parse();
+
+            // Skip closing parenthesis
+            if (self.pos < self.input.len and self.input[self.pos] == ')') {
+                self.pos += 1;
+            }
+
+            return node;
+        }
+
+        // Parse number (Leaf)
+        const start = self.pos;
+        while (self.pos < self.input.len) : (self.pos += 1) {
+            const c = self.input[self.pos];
+            if (c == ' ' or c == ')') break;
+        }
+
+        if (start == self.pos) return error.InvalidFormat;
+
+        const num_slice = self.input[start..self.pos];
+        node.candy = try std.fmt.parseInt(i32, num_slice, 10);
 
         return node;
     }
+};
 
-    node.left = null;
-    node.right = null;
+fn total_candy(node_opt: ?*const Node) i32 {
+    const node = node_opt orelse return 0;
 
-
-    const start = pos.*;
-
-    while (pos.* < l.len and l[pos.*] != ' ' and l[pos.*] != ')')
-        : (pos.*+= 1) {}
-
-    node.candy = std.fmt.parseInt(i32, l[start..(pos.*)], 10) catch 0;
-
-    return node;
-}
-
-fn walk_tree(n: ?*Node) void {
-    if ((n.?.left == null) and (n.?.right == null)) {
-        std.debug.print("{d} ", .{n.?.candy});
-        return;
+    if (node.left == null and node.right == null) {
+        return node.candy;
     }
 
-    if (n.?.left) |node|
-        walk_tree(node);
-
-    if (n.?.right) |node|
-        walk_tree(node);
-}
-
-fn total_candy(n: ?*Node) i32 {
-
-    if ((n.?.left == null) and (n.?.right == null))
-        return n.?.candy;
-
-    return total_candy(n.?.left) + total_candy(n.?.right);
-
+    return total_candy(node.left) + total_candy(node.right);
 }
 
 pub fn main() !void {
-    const str_tree = "(((4 9) 15) 20)";
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-    var pos: u32 = 0;
 
-    const root = read_tree_helper(str_tree, &pos, allocator);
+    const str_tree = "(((4 9) 15) 20)";
+    
+    var parser = Parser.init(str_tree, allocator);
+    const root = try parser.parse();
 
-    // walk_tree(root);
-
-    std.debug.print("{d}", .{total_candy(root)});
-
+    const result = total_candy(root);
+    std.debug.print("{d}\n", .{result});
 }
