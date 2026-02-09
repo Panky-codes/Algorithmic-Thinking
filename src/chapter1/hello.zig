@@ -71,16 +71,35 @@ fn total_candy(node_opt: ?*const Node) i32 {
     return total_candy(node.left) + total_candy(node.right);
 }
 
+fn tree_streets(node_opt: ?*const Node) i32 {
+    const node = node_opt orelse return 0;
+
+    if (node.left == null and node.right == null) {
+        return 0;
+    }
+
+    return tree_streets(node.left) + tree_streets(node.right) + 4;
+}
+
+fn tree_height(node_opt: ?*const Node) i32 {
+    const node = node_opt orelse return 0;
+
+    if (node.left == null and node.right == null) {
+        return 0;
+    }
+
+    return 1 + @max(tree_height(node.left) , tree_height(node.right));
+}
+
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const str_tree = "(((4 9) 15) 20)";
+    const str_tree = "((4 9) 15)";
     
     var parser = Parser.init(str_tree, allocator);
     const root = try parser.parse();
 
-    const result = total_candy(root);
-    std.debug.print("{d}\n", .{result});
+    std.debug.print("part 1: {d} part2: {d}\n", .{total_candy(root), tree_streets(root) - tree_height(root)});
 }
