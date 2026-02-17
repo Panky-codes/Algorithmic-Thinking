@@ -1,5 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const Node = struct {
     num_child: u32 = 0,
@@ -13,13 +14,10 @@ const Parser = struct {
     pos: usize = 0,
     allocator: Allocator,
     hashNames: std.StringHashMap(*Node),
+    keys: ArrayList(*Node),
 
     pub fn init(input: []const u8, allocator: Allocator) Parser {
-        return .{
-            .input = input,
-            .allocator = allocator,
-            .hashNames = std.StringHashMap(*Node).init(allocator),
-        };
+        return .{ .input = input, .allocator = allocator, .hashNames = std.StringHashMap(*Node).init(allocator), .keys = .empty };
     }
 
     fn get_or_alloc(self: *Parser, name: []const u8) !*Node {
@@ -32,6 +30,7 @@ const Parser = struct {
         node.?.* = .{}; // Initialize with defaults
         node.?.name = name;
         try self.hashNames.put(name, node.?);
+        try self.keys.append(self.allocator, node.?);
 
         return node.?;
     }
@@ -59,11 +58,41 @@ const Parser = struct {
 
                 const child_node: *Node = try self.get_or_alloc(name);
                 parent_node.children.?[pos - 2] = child_node;
-                // std.debug.print("Parser name: {s} {d} {any}\n", .{name, pos, child_node});
             }
         }
     }
+
+    fn score_one(node: *Node, d: u32) u32 {
+        if (d == 1)
+            return node.num_child;
+
+        var total: u32 = 0;
+        var n: u32 = 0;
+
+        while (n < node.num_child) : (n += 1) {
+            total = total + score_one(node.children.?[n], d - 1);
+        }
+        return total;
+    }
+
+    pub fn score_all(self: *Parser, d: u32) void {
+        var it = self.hashNames.iterator();
+
+        while (it.next()) |entry| {
+            const node: *Node = entry.value_ptr.*;
+            node.score = score_one(node, d);
+        }
+    }
 };
+
+pub fn cmp() fn (void, *Node, *Node) bool {
+    return struct {
+        // TODO: if the value are equal, do a strcmp
+        pub fn inner(_: void, a: *Node, b: *Node) bool {
+            return a.score > b.score;
+        }
+    }.inner;
+}
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -76,28 +105,18 @@ pub fn main() !void {
         \\Sana 2 Gabriel Lucas
         \\Enzo 2 Min Becky
         \\Kevin 2 Jad Cassie
-        \\Amber 4 Vlad Sana Mira Lola
-        \\Vlas 1 Omar
+        \\Amber 4 Vlad Sana Ashley Kevin
+        \\Vlad 1 Omar
     ;
 
     var parser = Parser.init(str_tree, allocator);
-    const root = try parser.parse();
-    var it = parser.hashNames.iterator();
+    try parser.parse();
 
-    while (it.next()) |entry| {
-        const node: *Node = entry.value_ptr.*;
-        var pos: u32 = 0;
+    parser.score_all(2);
 
-        if (node.num_child == 0)
-            continue;
-        std.debug.print("Parent name: {s}\n", .{node.name.?});
+    std.mem.sort(*Node, parser.keys.items, {}, cmp());
 
-        while (pos < node.num_child) {
-            std.debug.print("   - Child name: {s} \n", .{node.children.?[pos].name.?});
-            pos += 1;
-        }
+    for (parser.keys.items) |key| {
+        std.debug.print(" Name {s} score {d} \n", .{ key.name.?, key.score });
     }
-    _ = root;
-
-    // std.debug.print("part 1: {d} part2: {d}\n", .{total_candy(root), tree_streets(root) - tree_height(root)});
 }
