@@ -88,7 +88,7 @@ fn tree_height(node_opt: ?*const Node) i32 {
         return 0;
     }
 
-    return 1 + @max(tree_height(node.left) , tree_height(node.right));
+    return 1 + @max(tree_height(node.left), tree_height(node.right));
 }
 
 pub fn main() !void {
@@ -97,9 +97,9 @@ pub fn main() !void {
     const allocator = arena.allocator();
 
     const str_tree = "((4 9) 15)";
-    
+
     var parser = Parser.init(str_tree, allocator);
     const root = try parser.parse();
 
-    std.debug.print("part 1: {d} part2: {d}\n", .{total_candy(root), tree_streets(root) - tree_height(root)});
+    std.debug.print("part 1: {d} part2: {d}\n", .{ total_candy(root), tree_streets(root) - tree_height(root) });
 }
