@@ -1,9 +1,17 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+// -2 is used for no values calculated for a given t.
+// -1 is for no solution
+var mem = [_]isize{-2} ** 10000;
 
 fn solve(m: usize, n: usize, t: usize) isize {
-    if (t == 0)
+    if (mem[t] != -2)
+        return mem[t];
+
+    if (t == 0) {
+        mem[t] = 0;
         return 0;
+    }
 
     var first: isize = -1;
 
@@ -15,14 +23,17 @@ fn solve(m: usize, n: usize, t: usize) isize {
     if (n <= t)
         second = solve(m, n, t - n);
 
-    if (first == -1 and second == -1)
+    if (first == -1 and second == -1) {
+        mem[t] = -1;
         return -1;
+    }
 
-    return 1 + @max(first, second);
+    mem[t] = 1 + @max(first, second);
+    return mem[t];
 }
 
 pub fn main() !void {
-    const str_tree = "4 9 23";
+    const str_tree = "4 9 88";
     var result: isize = -1;
     var i: u32 = 0;
 
